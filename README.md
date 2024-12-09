@@ -1,4 +1,4 @@
-# SampleService
+# IAMAdminService
 
 implemented in Rust using Rocket.rs, integrating MongoDB and PostgreSQL with the Diesel ORM.
 

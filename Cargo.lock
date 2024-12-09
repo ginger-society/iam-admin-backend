@@ -3,19 +3,7 @@
 version = 3
 
 [[package]]
-name = "IAMService"
-version = "0.5.0-nightly.0"
-dependencies = [
- "reqwest",
- "serde",
- "serde_json",
- "serde_with 3.8.3",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "SampleService"
+name = "IAMAdminService"
 version = "0.5.0-nightly.0"
 dependencies = [
  "IAMService",
@@ -38,6 +26,18 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.8.3",
+]
+
+[[package]]
+name = "IAMService"
+version = "0.5.0-nightly.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_with 3.8.3",
+ "url",
+ "uuid",
 ]
 
 [[package]]

@@ -15,7 +15,7 @@ mod middlewares;
 mod models;
 mod routes;
 
-const SERVICE_PREFIX: &str = "service-name-here";
+const SERVICE_PREFIX: &str = "iam-admin";
 
 #[launch]
 fn rocket() -> Rocket<Build> {
