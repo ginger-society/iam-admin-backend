@@ -2,6 +2,8 @@ FROM gingersociety/rust-rocket-api-builder:latest as builder
 
 ARG GINGER_TOKEN
 
+RUN bash -c "$(curl -fsSL https://raw.githubusercontent.com/ginger-society/infra-as-code-repo/main/rust-helpers/installer.sh)" -- ginger-society/ginger-db:latest
+
 # Create a new directory for the app
 WORKDIR /app
 COPY . .
