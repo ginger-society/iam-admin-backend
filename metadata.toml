@@ -5,16 +5,16 @@ package_type = "executable"
 icon = "FaCodeBranch"
 internal = true
 label = "Pull Requests"
-link = "https://github.com/ginger-society/template-backend-rust/pulls"
+link = "https://github.com/ginger-society/iam-admin-backend/pulls"
 
 [[links]]
 icon = "FaRegPlayCircle"
 internal = true
 label = "Pipelines"
-link = "https://github.com/ginger-society/template-backend-rust/actions"
+link = "https://github.com/ginger-society/iam-admin-backend/actions"
 
 [[links]]
 icon = "FaGithub"
 internal = true
 label = "Browse Repo"
-link = "https://github.com/ginger-society/template-backend-rust"
+link = "https://github.com/ginger-society/iam-admin-backend"
