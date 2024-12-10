@@ -17,7 +17,7 @@ stage_k8 = "http://iam-service-api-service/iam"
 dev = "http://localhost:8080/iam-admin"
 prod = "https://exampleapi.com"
 prod_k8 = "https://exampleapi.com"
-stage = "https://api-staging.gingersociety.org/iam"
-stage_k8 = "http://iam-service-api-service/iam"
+stage = "https://api-staging.gingersociety.org/iam-admin"
+stage_k8 = "http://iam-service-api-service/iam-admin"
 
 [urls_ws]

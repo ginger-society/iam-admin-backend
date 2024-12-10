@@ -28,7 +28,7 @@ fn rocket() -> Rocket<Build> {
         .attach(prometheus.clone())
         .mount(
             format!("/{}/", SERVICE_PREFIX),
-            openapi_get_routes![routes::index,],
+            openapi_get_routes![routes::index, routes::admin::get_paginated_users],
         )
         .mount(
             format!("/{}/api-docs", SERVICE_PREFIX),
