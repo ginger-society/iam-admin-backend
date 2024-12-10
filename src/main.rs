@@ -14,6 +14,7 @@ mod fairings;
 mod middlewares;
 mod models;
 mod routes;
+use crate::routes::admin;
 
 const SERVICE_PREFIX: &str = "iam-admin";
 
@@ -28,7 +29,11 @@ fn rocket() -> Rocket<Build> {
         .attach(prometheus.clone())
         .mount(
             format!("/{}/", SERVICE_PREFIX),
-            openapi_get_routes![routes::index, routes::admin::get_paginated_users],
+            openapi_get_routes![
+                routes::index,
+                admin::get_paginated_users,
+                admin::update_user_by_email
+            ],
         )
         .mount(
             format!("/{}/api-docs", SERVICE_PREFIX),
