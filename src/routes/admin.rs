@@ -27,14 +27,14 @@ pub struct PaginatedResponse<T> {
     pub total_count: usize,
     pub data: Vec<T>,
 }
-
 #[openapi]
-#[get("/users?<page>&<page_size>")]
+#[get("/users?<page>&<page_size>&<search>")]
 pub fn get_paginated_users(
     _claims: Claims,
     rdb: &State<Pool<ConnectionManager<PgConnection>>>,
     page: Option<usize>,
     page_size: Option<usize>,
+    search: Option<String>,
 ) -> Result<Json<PaginatedResponse<UserResponse>>, rocket::http::Status> {
     use crate::models::schema::schema::user::dsl::*;
 
@@ -42,7 +42,6 @@ pub fn get_paginated_users(
         .get()
         .map_err(|_| rocket::http::Status::InternalServerError)?;
 
-    // Default values for pagination
     let page = page.unwrap_or(1);
     let page_size = page_size.unwrap_or(10);
 
@@ -50,31 +49,53 @@ pub fn get_paginated_users(
         return Err(rocket::http::Status::BadRequest);
     }
 
-    // Calculate offset
     let offset = (page - 1) * page_size;
+    let like_pattern = search.as_deref().map(|s| format!("%{}%", s));
 
-    // Get total count of records
-    let total_count: i64 = match user.count().get_result(&mut conn) {
-        Ok(count) => count,
-        Err(_) => return Err(rocket::http::Status::InternalServerError),
-    };
-
-    // Query the database for paginated records
-    match user
-        .order_by(created_at.desc())
-        .limit(page_size as i64)
-        .offset(offset as i64)
-        .load::<User>(&mut conn)
-    {
-        Ok(users) => {
-            let response: Vec<UserResponse> = users.into_iter().map(UserResponse::from).collect();
-            Ok(Json(PaginatedResponse {
-                total_count: total_count as usize,
-                data: response,
-            }))
-        }
-        Err(_) => Err(rocket::http::Status::InternalServerError),
+    // Total count query
+    let total_count: i64 = match like_pattern {
+        Some(ref pattern) => user
+            .filter(
+                first_name
+                    .ilike(pattern)
+                    .or(last_name.ilike(pattern))
+                    .or(middle_name.ilike(pattern))
+                    .or(email_id.ilike(pattern)),
+            )
+            .count()
+            .get_result(&mut conn),
+        None => user.count().get_result(&mut conn),
     }
+    .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    // Paginated results query
+    let results = match like_pattern {
+        Some(ref pattern) => user
+            .filter(
+                first_name
+                    .ilike(pattern)
+                    .or(last_name.ilike(pattern))
+                    .or(middle_name.ilike(pattern))
+                    .or(email_id.ilike(pattern)),
+            )
+            .order_by(created_at.desc())
+            .limit(page_size as i64)
+            .offset(offset as i64)
+            .load::<User>(&mut conn),
+        None => user
+            .order_by(created_at.desc())
+            .limit(page_size as i64)
+            .offset(offset as i64)
+            .load::<User>(&mut conn),
+    }
+    .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    let response: Vec<UserResponse> = results.into_iter().map(UserResponse::from).collect();
+
+    Ok(Json(PaginatedResponse {
+        total_count: total_count as usize,
+        data: response,
+    }))
 }
 
 #[openapi]
