@@ -78,11 +78,11 @@ pub fn get_paginated_users(
 }
 
 #[openapi]
-#[get("/user?<email_id>")]
+#[get("/user?<email>")]
 pub fn get_user_by_email(
     _claims: Claims,
     rdb: &State<Pool<ConnectionManager<PgConnection>>>,
-    email_id: String,
+    email: String,
 ) -> Result<Json<UserResponse>, rocket::http::Status> {
     use crate::models::schema::schema::user::dsl::*;
 
@@ -91,7 +91,7 @@ pub fn get_user_by_email(
         .map_err(|_| rocket::http::Status::InternalServerError)?;
 
     match user
-        .filter(email_id.eq(email_id.clone()))
+        .filter(email_id.eq(email.clone()))
         .first::<User>(&mut conn)
     {
         Ok(user_record) => Ok(Json(UserResponse::from(user_record))),

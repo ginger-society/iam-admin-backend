@@ -32,7 +32,8 @@ fn rocket() -> Rocket<Build> {
             openapi_get_routes![
                 routes::index,
                 admin::get_paginated_users,
-                admin::update_user_by_email
+                admin::update_user_by_email,
+                admin::get_user_by_email
             ],
         )
         .mount(
