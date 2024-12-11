@@ -34,7 +34,8 @@ fn rocket() -> Rocket<Build> {
                 admin::get_paginated_users,
                 admin::update_user_by_email,
                 admin::get_user_by_email,
-                admin::list_paginated_applications
+                admin::list_paginated_applications,
+                admin::check_group_exists
             ],
         )
         .mount(

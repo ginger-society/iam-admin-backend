@@ -3,6 +3,7 @@ use crate::models::response::{AppResponse, UserResponse};
 use crate::models::schema::{App, User};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
+use diesel::dsl::exists;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::{insert_into, PgConnection, RunQueryDsl};
 use diesel::{prelude::*, update};
@@ -208,4 +209,26 @@ pub fn list_paginated_applications(
         total_count: total_count as usize,
         data: response,
     }))
+}
+
+#[openapi]
+#[get("/group-exists/<uuid>")]
+pub fn check_group_exists(
+    uuid: String,
+    rdb: &State<Pool<ConnectionManager<PgConnection>>>,
+) -> Result<Json<bool>, rocket::http::Status> {
+    use crate::models::schema::schema::group::dsl::*;
+    use diesel::dsl::exists;
+    use diesel::prelude::*;
+
+    // Attempt to get a database connection
+    let mut conn = rdb
+        .get()
+        .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    // Check if the group exists
+    match diesel::select(exists(group.filter(identifier.eq(&uuid)))).get_result::<bool>(&mut conn) {
+        Ok(exists) => Ok(Json(exists)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
