@@ -33,7 +33,8 @@ fn rocket() -> Rocket<Build> {
                 routes::index,
                 admin::get_paginated_users,
                 admin::update_user_by_email,
-                admin::get_user_by_email
+                admin::get_user_by_email,
+                admin::list_paginated_applications
             ],
         )
         .mount(

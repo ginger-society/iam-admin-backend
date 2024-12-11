@@ -1,6 +1,6 @@
 use crate::models::request::UpdateUserRequest;
-use crate::models::response::UserResponse;
-use crate::models::schema::User;
+use crate::models::response::{AppResponse, UserResponse};
+use crate::models::schema::{App, User};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -150,4 +150,62 @@ pub fn update_user_by_email(
         Err(diesel::result::Error::NotFound) => Err(rocket::http::Status::NotFound),
         Err(_) => Err(rocket::http::Status::InternalServerError),
     }
+}
+#[openapi]
+#[get("/applications?<page>&<page_size>&<search>")]
+pub fn list_paginated_applications(
+    _claims: Claims,
+    rdb: &State<Pool<ConnectionManager<PgConnection>>>,
+    page: Option<usize>,
+    page_size: Option<usize>,
+    search: Option<String>,
+) -> Result<Json<PaginatedResponse<AppResponse>>, rocket::http::Status> {
+    use crate::models::schema::schema::app::dsl::*;
+
+    let mut conn = rdb
+        .get()
+        .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    let page = page.unwrap_or(1);
+    let page_size = page_size.unwrap_or(10);
+
+    if page_size == 0 {
+        return Err(rocket::http::Status::BadRequest);
+    }
+
+    let offset = (page - 1) * page_size;
+    let like_pattern = search.as_deref().map(|s| format!("%{}%", s));
+
+    // Total count query
+    let total_count: i64 = match like_pattern {
+        Some(ref pattern) => app
+            .filter(name.ilike(pattern).or(client_id.ilike(pattern)))
+            .count()
+            .get_result(&mut conn),
+        None => app.count().get_result(&mut conn),
+    }
+    .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    // Paginated results query
+    let results = match like_pattern {
+        Some(ref pattern) => app
+            .filter(name.ilike(pattern).or(client_id.ilike(pattern)))
+            .order_by(name.desc())
+            .limit(page_size as i64)
+            .offset(offset as i64)
+            .load::<App>(&mut conn),
+        None => app
+            .order_by(name.desc())
+            .limit(page_size as i64)
+            .offset(offset as i64)
+            .load::<App>(&mut conn),
+    }
+    .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    let response: Vec<AppResponse> = results.into_iter().map(AppResponse::from).collect();
+
+    Ok(Json(PaginatedResponse {
+        total_count: total_count as usize,
+        data: response,
+    }))
 }
