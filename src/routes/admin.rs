@@ -1,4 +1,4 @@
-use crate::models::request::UpdateUserRequest;
+use crate::models::request::{InviteRequest, UpdateUserRequest};
 use crate::models::response::{AppResponse, UserResponse};
 use crate::models::schema::{App, User};
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -12,6 +12,7 @@ use ginger_shared_rs::rocket_utils::{APIClaims, Claims};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use r2d2_redis::redis::Commands;
 use r2d2_redis::RedisConnectionManager;
+use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rocket::http::Status;
 use rocket::response::status;
@@ -22,6 +23,10 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::env;
+use NotificationService::apis::configuration::ApiKey as NotificationApiKey;
+use NotificationService::apis::default_api::{send_email, SendEmailParams};
+use NotificationService::get_configuration as get_notification_service_configuration;
+use NotificationService::models::EmailRequest;
 
 #[derive(Serialize, JsonSchema)]
 pub struct PaginatedResponse<T> {
@@ -218,8 +223,6 @@ pub fn check_group_exists(
     rdb: &State<Pool<ConnectionManager<PgConnection>>>,
 ) -> Result<Json<bool>, rocket::http::Status> {
     use crate::models::schema::schema::group::dsl::*;
-    use diesel::dsl::exists;
-    use diesel::prelude::*;
 
     // Attempt to get a database connection
     let mut conn = rdb
@@ -231,4 +234,81 @@ pub fn check_group_exists(
         Ok(exists) => Ok(Json(exists)),
         Err(_) => Err(rocket::http::Status::InternalServerError),
     }
+}
+
+#[openapi]
+#[get("/user-exists/<email>")]
+pub fn check_user_exists(
+    email: String,
+    rdb: &State<Pool<ConnectionManager<PgConnection>>>,
+) -> Result<Json<bool>, rocket::http::Status> {
+    use crate::models::schema::schema::user::dsl::*;
+
+    // Attempt to get a database connection
+    let mut conn = rdb
+        .get()
+        .map_err(|_| rocket::http::Status::InternalServerError)?;
+
+    // Check if the user exists
+    match diesel::select(exists(user.filter(email_id.eq(&email)))).get_result::<bool>(&mut conn) {
+        Ok(exists) => Ok(Json(exists)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
+}
+
+#[openapi]
+#[post("/create-invite", data = "<invite_request>")]
+pub async fn create_invite(
+    invite_request: Json<InviteRequest>,
+    cache_pool: &State<Pool<RedisConnectionManager>>,
+) -> Result<(), Status> {
+    let mut cache_connection = cache_pool.get().map_err(|_| Status::ServiceUnavailable)?;
+
+    // Generate a unique token
+    let token: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect();
+
+    // Serialize the invite data as JSON
+    let invite_data =
+        serde_json::to_string(&*invite_request).map_err(|_| Status::InternalServerError)?;
+
+    // Save the invite data in Redis with a token as the key
+    let expiration = 3600; // 1 hour in seconds
+    cache_connection
+        .set_ex(&token, invite_data, expiration)
+        .map_err(|_| Status::InternalServerError)?;
+
+    // Configure the email sending service
+    let mut configuration = get_notification_service_configuration();
+
+    let token_str = env::var("ISC_SECRET").expect("ISC_SECRET must be set");
+
+    configuration.api_key = Some(NotificationApiKey {
+        key: token_str,
+        prefix: None,
+    });
+
+    // Send the invite email
+    let email_body = format!(
+        "Hello {first_name},\n\nYou have been invited to join our platform. Use the following link to accept the invite: \
+        https://iam-staging.gingersociety/accept-invite/{token}\n\nThe link expires in 1 hour.",
+        first_name = invite_request.first_name,
+        token = token
+    );
+
+    let email_request = EmailRequest {
+        to: invite_request.email_id.clone(),
+        subject: "You're Invited!".to_string(),
+        message: email_body,
+        reply_to: None,
+    };
+
+    send_email(&configuration, SendEmailParams { email_request })
+        .await
+        .map_err(|_| Status::ServiceUnavailable)?;
+
+    Ok(())
 }
