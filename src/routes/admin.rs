@@ -294,7 +294,7 @@ pub async fn create_invite(
     // Send the invite email
     let email_body = format!(
         "Hello {first_name},\n\nYou have been invited to join our platform. Use the following link to accept the invite: \
-        https://iam-staging.gingersociety/accept-invite/{token}\n\nThe link expires in 1 hour.",
+        https://iam-staging.gingersociety/#/accept-invite/{token}\n\nThe link expires in 1 hour.",
         first_name = invite_request.first_name,
         token = token
     );
